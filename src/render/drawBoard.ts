@@ -8,7 +8,7 @@ export interface RenderMetrics {
 
 const COLORS = {
   background: '#111827',
-  grid: '#1f2937',
+  grid: '#475569',
   body: '#38bdf8',
   head: '#fbbf24',
   headMark: '#111827',
