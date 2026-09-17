@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { GameState } from '../game/types';
 import { drawBoard, resizeCanvas, type RenderMetrics } from './drawBoard';
 
@@ -19,7 +19,10 @@ export function CanvasBoard({ state }: CanvasBoardProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);
-  stateRef.current = state;
+
+  useLayoutEffect(() => {
+    stateRef.current = state;
+  }, [state]);
 
   useEffect(() => {
     const wrap = wrapRef.current;

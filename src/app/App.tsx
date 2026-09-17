@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import {
   MAX_CATCH_UP_STEPS,
   STEP_MS,
@@ -27,11 +27,14 @@ export function App({
   );
 
   const stateRef = useRef(state);
-  stateRef.current = state;
   const randomRef = useRef(random);
-  randomRef.current = random;
   const storageRef = useRef(storage);
-  storageRef.current = storage;
+
+  useLayoutEffect(() => {
+    stateRef.current = state;
+    randomRef.current = random;
+    storageRef.current = storage;
+  }, [state, random, storage]);
 
   const dispatch = useCallback((command: GameCommand) => {
     setState((previous) => {
