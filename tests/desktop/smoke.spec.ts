@@ -1,7 +1,9 @@
 import { expect, test, _electron as electron, type ElectronApplication, type Page } from '@playwright/test';
-import { mkdtempSync } from 'node:fs';
+import { mkdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+
+const SCREENSHOT_DIR = join(process.cwd(), 'test-results', 'desktop-media');
 
 async function launchApp(): Promise<{ app: ElectronApplication; page: Page }> {
   const userData = mkdtempSync(join(tmpdir(), 'st-snake-e2e-'));
@@ -26,6 +28,11 @@ test('production electron smoke: window, play, menu, settings, exit', async () =
   await expect(page).toHaveTitle('st贪吃蛇');
   await expect(page.getByRole('heading', { name: 'st贪吃蛇' })).toBeVisible();
   await expect(page.getByRole('button', { name: '开始游戏' })).toBeVisible();
+  mkdirSync(SCREENSHOT_DIR, { recursive: true });
+  await page.screenshot({
+    path: join(SCREENSHOT_DIR, 'electron-menu.png'),
+    fullPage: true,
+  });
 
   await page.getByRole('button', { name: '开始游戏' }).click();
   await expect(page.getByTestId('phase-status')).toContainText('进行中');
@@ -48,6 +55,10 @@ test('production electron smoke: window, play, menu, settings, exit', async () =
   await page.getByRole('button', { name: '设置' }).click();
   await expect(page.getByTestId('settings-dialog')).toBeVisible();
   await expect(page.getByTestId('phase-status')).toContainText('已暂停');
+  await page.screenshot({
+    path: join(SCREENSHOT_DIR, 'electron-settings-paused.png'),
+    fullPage: true,
+  });
   await page.getByRole('button', { name: '关闭' }).click();
   await expect(page.getByTestId('settings-dialog')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: '暂停' })).toBeVisible();
