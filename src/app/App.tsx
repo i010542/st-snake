@@ -1,14 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import {
-  MAX_CATCH_UP_STEPS,
-  STEP_MS,
-} from '../game/constants';
+import { MAX_CATCH_UP_STEPS } from '../game/constants';
 import { mapKeyToAction } from '../game/input';
 import { advanceAccumulator } from '../game/loop';
 import { reduceGame } from '../game/reducer';
+import { cpsToStepMs, stepMsToCps } from '../game/speed';
 import { createMenuState } from '../game/state';
 import type { GameCommand, GameState, RandomSource } from '../game/types';
 import { readHighScore, writeHighScore } from '../storage/highScore';
+import { readSpeedCps, writeSpeedCps } from '../storage/speed';
 import { GameScreen } from './GameScreen';
 
 interface AppProps {
@@ -23,7 +22,9 @@ export function App({
   initialState,
 }: AppProps) {
   const [state, setState] = useState<GameState>(
-    () => initialState ?? createMenuState(readHighScore(storage)),
+    () =>
+      initialState ??
+      createMenuState(readHighScore(storage), cpsToStepMs(readSpeedCps(storage))),
   );
 
   const stateRef = useRef(state);
@@ -41,6 +42,9 @@ export function App({
       const next = reduceGame(previous, command, randomRef.current);
       if (next.highScore !== previous.highScore) {
         writeHighScore(next.highScore, storageRef.current);
+      }
+      if (command.type === 'SET_SPEED') {
+        writeSpeedCps(stepMsToCps(next.board.stepMs), storageRef.current);
       }
       return next;
     });
@@ -73,8 +77,13 @@ export function App({
       const target = event.target;
       const isButton =
         target instanceof HTMLElement && target.tagName === 'BUTTON';
+      const isSpeedSlider =
+        target instanceof HTMLInputElement && target.type === 'range';
 
       if (action.type === 'direction') {
+        if (isSpeedSlider) {
+          return;
+        }
         if (event.key.startsWith('Arrow')) {
           event.preventDefault();
         }
@@ -135,11 +144,19 @@ export function App({
     let frameId = 0;
     let lastTs: number | null = null;
     let accumulatedMs = 0;
+    let lastStepMs = stateRef.current.board.stepMs;
     let cancelled = false;
 
     const onFrame = (timestamp: number) => {
       if (cancelled) {
         return;
+      }
+
+      const stepMs = Math.max(1, stateRef.current.board.stepMs);
+      if (stepMs !== lastStepMs) {
+        lastStepMs = stepMs;
+        lastTs = timestamp;
+        accumulatedMs = 0;
       }
 
       if (stateRef.current.phase !== 'running') {
@@ -154,7 +171,7 @@ export function App({
         const result = advanceAccumulator(
           accumulatedMs,
           elapsedMs,
-          STEP_MS,
+          stepMs,
           MAX_CATCH_UP_STEPS,
         );
         accumulatedMs = result.remainingMs;

@@ -11,11 +11,17 @@
 ```ts
 export const BOARD_COLUMNS = 24;
 export const BOARD_ROWS = 18;
-export const STEP_MS = 125;
+export const STEP_MS = 125; // 默认 8 格/秒；不要改这个默认值
+export const MIN_CPS = 4;
+export const MAX_CPS = 15;
+export const DEFAULT_CPS = 8;
 export const POINTS_PER_FOOD = 10;
 export const MAX_CATCH_UP_STEPS = 2;
 export const HIGH_SCORE_KEY = 'st-snake.highScore.v1';
+export const SPEED_CPS_KEY = 'st-snake.speedCps.v1';
 ```
+
+速度映射：`stepMs = 1000 / cps`。滑块与存储使用整数格/秒；`BoardConfig.stepMs` 和 RAF 累计器必须读当前值，不能把 `STEP_MS` 冻死在循环里。速度控件放在棋盘正下方，菜单/暂停/结束时仍可见。
 
 初始蛇按“头到尾”为 `[(12, 9), (11, 9), (10, 9)]`，初始方向 `right`。不要把这些值散落在组件中。
 
@@ -39,9 +45,9 @@ export const HIGH_SCORE_KEY = 'st-snake.highScore.v1';
    实现开始、暂停、继续、结束、重开，以及“每逻辑步只收第一个合法转向”。事件处理只产生命令或新状态，不直接绘图。
    独立验证：表驱动测试所有合法/非法状态转换；重点测试当前向右时同一逻辑步快速输入“上、左”最终只向上。
 
-5. **实现固定步长游戏循环**
-   用 `requestAnimationFrame` 调度、`125 ms` 固定步推进；卸载时取消帧并移除监听。暂停/标签页隐藏时清空累计时间，单帧最多追赶 2 步。
-   独立验证：使用假时钟或抽出的 accumulator 函数验证 124 ms 不走、125 ms 走一步、250 ms 走两步、超量不无限追帧。
+5. **实现可变步长游戏循环**
+   用 `requestAnimationFrame` 调度、按当前 `board.stepMs` 推进（默认 `125 ms`）；卸载时取消帧并移除监听。暂停/标签页隐藏或改速时清空累计时间，单帧最多追赶 2 步。
+   独立验证：使用假时钟或抽出的 accumulator 函数验证未满一步不走、满一步走一步、两倍步长走两步、超量不无限追帧。
 
 6. **实现 Canvas 渲染**
    渲染背景、可辨识网格、蛇头、蛇身、食物；按容器和 DPR 调整清晰度。渲染函数只读状态。
@@ -75,12 +81,14 @@ src/
     movement.ts              # 下一坐标、移动和增长
     collision.ts             # 墙体和自身碰撞
     food.ts                  # 空格枚举和食物生成
-    loop.ts                  # 固定步长 accumulator
+    loop.ts                  # 固定/可变步长 accumulator
+    speed.ts                 # cps ↔ stepMs 与钳制
   render/
     CanvasBoard.tsx          # Canvas 生命周期和尺寸
     drawBoard.ts             # 无 React 依赖的绘制函数
   storage/
-    highScore.ts             # localStorage 安全读写
+    highScore.ts             # localStorage 最高分安全读写
+    speed.ts                 # localStorage 速度偏好安全读写
   styles/
     global.css
   main.tsx
@@ -93,6 +101,7 @@ tests/
     reducer.test.ts
     loop.test.ts
     highScore.test.ts
+    speed.test.ts
   component/
     App.test.tsx
   e2e/
@@ -133,8 +142,9 @@ interface GameState {
   endReason: EndReason;
 }
 
-createMenuState(highScore: number): GameState;
-createNewGame(highScore: number, random: RandomSource): GameState;
+createBoardConfig(stepMs?: number): BoardConfig;
+createMenuState(highScore: number, stepMs?: number): GameState;
+createNewGame(highScore: number, random: RandomSource, stepMs?: number): GameState;
 ```
 
 `createNewGame` 直接进入 `running`，放置初始食物，并重置输入锁、当前分数和结束原因。
@@ -212,7 +222,8 @@ type GameCommand =
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'RESTART' }
-  | { type: 'VISIBILITY_HIDDEN' };
+  | { type: 'VISIBILITY_HIDDEN' }
+  | { type: 'SET_SPEED'; cps: number };
 
 reduceGame(
   state: GameState,
@@ -240,6 +251,7 @@ stepGame(state: GameState, random: RandomSource): GameState;
 - `RESTART` 仅对 `paused`、`gameOver` 生效。
 - `TICK` 和 `QUEUE_DIRECTION` 仅对 `running` 生效。
 - `VISIBILITY_HIDDEN` 将 `running` 转为 `paused`。
+- `SET_SPEED` 在任意阶段只更新 `board.stepMs`（按 `4..15` 钳制），不得改 phase、蛇身、分数或 `pendingDirection`。`START`/`RESTART` 必须带上当前 `stepMs`。
 
 ### 5.6 循环
 
@@ -257,7 +269,7 @@ advanceAccumulator(
 ): AdvanceResult;
 ```
 
-组件层维护帧 ID、上一帧时间和累计时间。进入非 `running` 状态、页面隐藏或恢复时，重置上一帧时间和累计时间。不得创建多个并行 RAF 循环。
+组件层维护帧 ID、上一帧时间和累计时间，每帧读取当前 `state.board.stepMs`。进入非 `running` 状态、页面隐藏或恢复、或 `stepMs` 变化时，重置上一帧时间和累计时间。不得创建多个并行 RAF 循环。
 
 ### 5.7 渲染
 
@@ -288,6 +300,19 @@ sanitizeHighScore(raw: string | null): number;
 
 所有存储访问使用 `try/catch`。`sanitizeHighScore` 对缺失、`NaN`、小数、负数返回 0。写入失败不向上抛出导致游戏中断。
 
+### 5.9 速度偏好
+
+```ts
+readSpeedCps(storage?: Storage): number;
+writeSpeedCps(cps: number, storage?: Storage): void;
+sanitizeSpeedCps(raw: string | null): number;
+clampCps(cps: number): number;
+cpsToStepMs(cps: number): number; // 1000 / clampCps(cps)
+stepMsToCps(stepMs: number): number;
+```
+
+键名 `st-snake.speedCps.v1`。缺失/非整数/非数字 → `8`；越界整数钳制到 `4` 或 `15`。存储异常不阻断游戏。UI 滑块放在棋盘下方，中文标注慢—快和当前格/秒（及毫秒/步）。
+
 ## 6. 自动化测试最低集合
 
 - 初始状态和新局重置。
@@ -299,6 +324,7 @@ sanitizeHighScore(raw: string | null): number;
 - 菜单、进行中、暂停、结束的全部允许和禁止转换。
 - 固定步长与最多追赶 2 步。
 - 最高分有效值、脏值和存储异常。
+- 速度钳制、默认 8 格/秒、脏存储回落、改速不破坏暂停/输入锁。
 - UI 可通过按钮和键盘开始、暂停、继续、重开，并显示分数与结束原因。
 
 不应为了覆盖率写无断言或仅快照测试。核心 `game/` 分支应以行为断言覆盖，覆盖率数值不是唯一验收标准。
@@ -308,7 +334,7 @@ sanitizeHighScore(raw: string | null): number;
 ### 7.1 功能
 
 - [ ] 菜单显示真实游戏名、玩法和键位，可用按钮、Enter 或 Space 开始。
-- [ ] 蛇以 8 格/秒稳定移动，方向键和 WASD 均有效。
+- [ ] 蛇默认以 8 格/秒稳定移动；滑块可调 4–15 格/秒；方向键和 WASD 均有效。
 - [ ] 同一逻辑步只接受首个合法转向，任何快速连按都不能造成 180° 掉头。
 - [ ] 食物只在空格出现；吃到后长度增加 1、分数增加 10、生成下一食物。
 - [ ] 四面撞墙和撞身体均结束，死亡步不提交非法蛇头。
@@ -335,7 +361,7 @@ sanitizeHighScore(raw: string | null): number;
 
 - 不做后端、账号、在线排行、多人、广告或分析埋点。
 - 不做关卡、障碍、道具、皮肤、音效、粒子特效、屏幕震动或复杂转场。
-- 不做动态加速、穿墙、可配置棋盘，也不擅自更改固定常量。
+- 不做随分数自动加速、穿墙、可配置棋盘；不要改默认 `STEP_MS=125`、棋盘 24×18 或 +10 分。玩家速度滑块是允许的。
 - 不引入 Redux 等全局状态库、物理引擎、游戏引擎或第二套 UI 框架。
 - 不把核心规则写进 React 组件、Canvas 绘制函数或键盘事件回调。
 - 不用 DOM 像素位置做碰撞，不用渲染帧数决定蛇速。

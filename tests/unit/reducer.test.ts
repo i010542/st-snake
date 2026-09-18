@@ -252,3 +252,94 @@ describe('stepGame rules', () => {
     expect(next.score).toBe(10);
   });
 });
+
+describe('SET_SPEED', () => {
+  it('updates stepMs in every phase without touching snake, score or input lock', () => {
+    const phases: Array<GameState['phase']> = ['menu', 'running', 'paused', 'gameOver'];
+
+    for (const phase of phases) {
+      const current =
+        phase === 'menu'
+          ? createMenuState(10)
+          : phase === 'running'
+            ? runningState({
+                score: 20,
+                snake: {
+                  segments: [
+                    { x: 12, y: 9 },
+                    { x: 11, y: 9 },
+                    { x: 10, y: 9 },
+                  ],
+                  direction: 'right',
+                  pendingDirection: 'up',
+                },
+              })
+            : phase === 'paused'
+              ? {
+                  ...runningState({
+                    score: 20,
+                    snake: {
+                      segments: [
+                        { x: 12, y: 9 },
+                        { x: 11, y: 9 },
+                        { x: 10, y: 9 },
+                      ],
+                      direction: 'right',
+                      pendingDirection: 'up',
+                    },
+                  }),
+                  phase: 'paused' as const,
+                }
+              : {
+                  ...runningState({ score: 20 }),
+                  phase: 'gameOver' as const,
+                  endReason: 'wall' as const,
+                };
+
+      const next = reduceGame(current, { type: 'SET_SPEED', cps: 4 }, randomZero);
+      expect(next.phase).toBe(phase);
+      expect(next.board.stepMs).toBe(250);
+      expect(next.score).toBe(current.score);
+      expect(next.snake).toEqual(current.snake);
+      expect(next.food).toEqual(current.food);
+      expect(next.endReason).toBe(current.endReason);
+    }
+  });
+
+  it('does not unlock a queued turn or resume a paused game', () => {
+    const paused = {
+      ...runningState({
+        snake: {
+          segments: [
+            { x: 12, y: 9 },
+            { x: 11, y: 9 },
+            { x: 10, y: 9 },
+          ],
+          direction: 'right',
+          pendingDirection: 'up',
+        },
+      }),
+      phase: 'paused' as const,
+    };
+
+    const next = reduceGame(paused, { type: 'SET_SPEED', cps: 15 }, randomZero);
+    expect(next.phase).toBe('paused');
+    expect(next.snake.pendingDirection).toBe('up');
+    expect(next.board.stepMs).toBeCloseTo(1000 / 15);
+  });
+
+  it('preserves custom speed across START and RESTART', () => {
+    const menu = {
+      ...createMenuState(0),
+      board: { ...createMenuState(0).board, stepMs: 250 },
+    };
+    const started = reduceGame(menu, { type: 'START' }, randomZero);
+    expect(started.phase).toBe('running');
+    expect(started.board.stepMs).toBe(250);
+
+    const paused = { ...started, phase: 'paused' as const };
+    const restarted = reduceGame(paused, { type: 'RESTART' }, randomZero);
+    expect(restarted.phase).toBe('running');
+    expect(restarted.board.stepMs).toBe(250);
+  });
+});

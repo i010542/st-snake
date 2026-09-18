@@ -7,14 +7,15 @@ import {
   STEP_MS,
 } from './constants';
 import { spawnFood } from './food';
+import { normalizeStepMs } from './speed';
 import type { BoardConfig, GameState, RandomSource, Snake } from './types';
 import { clonePoint } from './types';
 
-export function createBoardConfig(): BoardConfig {
+export function createBoardConfig(stepMs: number = STEP_MS): BoardConfig {
   return {
     columns: BOARD_COLUMNS,
     rows: BOARD_ROWS,
-    stepMs: STEP_MS,
+    stepMs: normalizeStepMs(stepMs),
     pointsPerFood: POINTS_PER_FOOD,
   };
 }
@@ -27,10 +28,10 @@ export function createInitialSnake(): Snake {
   };
 }
 
-export function createMenuState(highScore: number): GameState {
+export function createMenuState(highScore: number, stepMs: number = STEP_MS): GameState {
   return {
     phase: 'menu',
-    board: createBoardConfig(),
+    board: createBoardConfig(stepMs),
     snake: createInitialSnake(),
     food: null,
     score: 0,
@@ -39,15 +40,16 @@ export function createMenuState(highScore: number): GameState {
   };
 }
 
-export function createInitialState(highScore: number): GameState {
-  return createMenuState(highScore);
+export function createInitialState(highScore: number, stepMs: number = STEP_MS): GameState {
+  return createMenuState(highScore, stepMs);
 }
 
 export function createNewGame(
   highScore: number,
   random: RandomSource,
+  stepMs: number = STEP_MS,
 ): GameState {
-  const board = createBoardConfig();
+  const board = createBoardConfig(stepMs);
   const snake = createInitialSnake();
 
   return {

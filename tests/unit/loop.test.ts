@@ -30,4 +30,19 @@ describe('advanceAccumulator', () => {
       remainingMs: 0,
     });
   });
+
+  it('uses the caller-supplied stepMs instead of a frozen default', () => {
+    expect(advanceAccumulator(0, 249, 250, MAX_CATCH_UP_STEPS)).toEqual({
+      steps: 0,
+      remainingMs: 249,
+    });
+    expect(advanceAccumulator(0, 250, 250, MAX_CATCH_UP_STEPS)).toEqual({
+      steps: 1,
+      remainingMs: 0,
+    });
+    expect(advanceAccumulator(0, 1000 / 15, 1000 / 15, MAX_CATCH_UP_STEPS)).toEqual({
+      steps: 1,
+      remainingMs: 0,
+    });
+  });
 });

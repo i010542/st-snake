@@ -12,6 +12,8 @@ test('menu shows the game name and scores', async ({ page }) => {
   await expect(page.getByRole('button', { name: '开始游戏' })).toBeVisible();
   await expect(page.getByTestId('score')).toHaveText('0');
   await expect(page.getByTestId('high-score')).toHaveText('0');
+  await expect(page.getByTestId('speed-slider')).toBeVisible();
+  await expect(page.getByTestId('speed-readout')).toContainText('8 格/秒');
 });
 
 test('keyboard can start, pause, resume, die, and restart', async ({ page }) => {

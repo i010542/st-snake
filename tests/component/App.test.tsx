@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { App } from '../../src/app/App';
+import { SPEED_CPS_KEY } from '../../src/game/constants';
 import { createMenuState, createNewGame } from '../../src/game/state';
 import type { GameState } from '../../src/game/types';
 
@@ -118,6 +119,139 @@ describe('App UI', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('撞到自己');
     await user.keyboard(' ');
     expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument();
+  });
+
+  it('shows the speed slider on the menu with the default 8 cells/sec', () => {
+    render(<App storage={memoryStorage()} random={() => 0} />);
+
+    const slider = screen.getByTestId('speed-slider');
+    expect(slider).toBeInTheDocument();
+    expect(slider).toHaveValue('8');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 8 格/秒（125 毫秒/步）');
+    expect(screen.getByText('慢')).toBeInTheDocument();
+    expect(screen.getByText('快')).toBeInTheDocument();
+  });
+
+  it('keeps the slider visible while running, paused and after game over', async () => {
+    const user = userEvent.setup();
+    const view = render(<App storage={memoryStorage()} random={() => 0} />);
+
+    await user.click(screen.getByRole('button', { name: '开始游戏' }));
+    expect(screen.getByTestId('speed-slider')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '暂停' }));
+    expect(screen.getByRole('heading', { name: '暂停' })).toBeInTheDocument();
+    expect(screen.getByTestId('speed-slider')).toBeInTheDocument();
+    view.unmount();
+
+    render(
+      <App
+        storage={memoryStorage()}
+        random={() => 0}
+        initialState={endedState('wall')}
+      />,
+    );
+    expect(screen.getByRole('alert')).toHaveTextContent('游戏结束');
+    expect(screen.getByTestId('speed-slider')).toBeInTheDocument();
+  });
+
+  it('changes the live readout when dragged slower or faster', () => {
+    render(<App storage={memoryStorage()} random={() => 0} />);
+    const slider = screen.getByTestId('speed-slider');
+
+    fireEvent.change(slider, { target: { value: '4' } });
+    expect(slider).toHaveValue('4');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 4 格/秒（250 毫秒/步）');
+
+    fireEvent.change(slider, { target: { value: '15' } });
+    expect(slider).toHaveValue('15');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 15 格/秒（67 毫秒/步）');
+  });
+
+  it('persists the chosen speed and restores it after remount', () => {
+    const storage = memoryStorage();
+    const first = render(<App storage={storage} random={() => 0} />);
+    fireEvent.change(screen.getByTestId('speed-slider'), { target: { value: '4' } });
+    expect(storage.getItem(SPEED_CPS_KEY)).toBe('4');
+    first.unmount();
+
+    render(<App storage={storage} random={() => 0} />);
+    expect(screen.getByTestId('speed-slider')).toHaveValue('4');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 4 格/秒（250 毫秒/步）');
+  });
+
+  it('sanitizes a dirty stored speed back to the default 8', () => {
+    render(
+      <App
+        storage={memoryStorage({ [SPEED_CPS_KEY]: 'abc' })}
+        random={() => 0}
+      />,
+    );
+    expect(screen.getByTestId('speed-slider')).toHaveValue('8');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 8 格/秒（125 毫秒/步）');
+  });
+
+  it('does not resume a paused game or drop the score when speed changes', () => {
+    const paused = {
+      ...createNewGame(0, () => 0),
+      phase: 'paused' as const,
+      score: 20,
+      snake: {
+        segments: [
+          { x: 12, y: 9 },
+          { x: 11, y: 9 },
+          { x: 10, y: 9 },
+        ],
+        direction: 'right' as const,
+        pendingDirection: 'up' as const,
+      },
+    };
+
+    render(
+      <App
+        storage={memoryStorage()}
+        random={() => 0}
+        initialState={paused}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('speed-slider'), { target: { value: '15' } });
+    expect(screen.getByRole('heading', { name: '暂停' })).toBeInTheDocument();
+    expect(screen.getByTestId('score')).toHaveTextContent('20');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 15 格/秒（67 毫秒/步）');
+    expect(screen.getByRole('img')).toHaveAttribute(
+      'aria-label',
+      expect.stringContaining('方向向右'),
+    );
+  });
+
+  it('can change speed while running without leaving the run or losing score', () => {
+    const running: GameState = {
+      ...createNewGame(0, () => 0),
+      score: 20,
+      snake: {
+        segments: [
+          { x: 12, y: 9 },
+          { x: 11, y: 9 },
+          { x: 10, y: 9 },
+        ],
+        direction: 'right',
+        pendingDirection: 'up',
+      },
+    };
+
+    render(
+      <App
+        storage={memoryStorage()}
+        random={() => 0}
+        initialState={running}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('speed-slider'), { target: { value: '4' } });
+    expect(screen.getByRole('button', { name: '暂停' })).toBeInTheDocument();
+    expect(screen.getByTestId('score')).toHaveTextContent('20');
+    expect(screen.getByTestId('speed-readout')).toHaveTextContent('当前 4 格/秒（250 毫秒/步）');
   });
 
   it('keeps playing when storage reads and writes throw', async () => {

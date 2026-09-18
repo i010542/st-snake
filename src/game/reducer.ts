@@ -3,6 +3,7 @@ import { isOutside, isSelfCollision } from './collision';
 import { spawnFood } from './food';
 import { queueDirection } from './input';
 import { moveSnake, nextHead } from './movement';
+import { cpsToStepMs } from './speed';
 import { createNewGame } from './state';
 import { pointsEqual, type GameCommand, type GameState, type RandomSource } from './types';
 
@@ -81,7 +82,7 @@ export function reduceGame(
       if (state.phase !== 'menu') {
         return state;
       }
-      return createNewGame(state.highScore, random);
+      return createNewGame(state.highScore, random, state.board.stepMs);
     case 'PAUSE':
       if (state.phase !== 'running') {
         return state;
@@ -96,7 +97,7 @@ export function reduceGame(
       if (state.phase !== 'paused' && state.phase !== 'gameOver') {
         return state;
       }
-      return createNewGame(state.highScore, random);
+      return createNewGame(state.highScore, random, state.board.stepMs);
     case 'TICK':
       if (state.phase !== 'running') {
         return state;
@@ -115,5 +116,18 @@ export function reduceGame(
         return state;
       }
       return { ...state, phase: 'paused' };
+    case 'SET_SPEED': {
+      const stepMs = cpsToStepMs(command.cps);
+      if (state.board.stepMs === stepMs) {
+        return state;
+      }
+      return {
+        ...state,
+        board: {
+          ...state.board,
+          stepMs,
+        },
+      };
+    }
   }
 }

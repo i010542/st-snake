@@ -11,7 +11,7 @@ export interface Point {
 export interface BoardConfig {
   columns: 24;
   rows: 18;
-  stepMs: 125;
+  stepMs: number;
   pointsPerFood: 10;
 }
 
@@ -38,7 +38,8 @@ export type GameCommand =
   | { type: 'PAUSE' }
   | { type: 'RESUME' }
   | { type: 'RESTART' }
-  | { type: 'VISIBILITY_HIDDEN' };
+  | { type: 'VISIBILITY_HIDDEN' }
+  | { type: 'SET_SPEED'; cps: number };
 
 export type InputAction =
   | { type: 'direction'; direction: Direction }

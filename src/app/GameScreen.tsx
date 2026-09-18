@@ -1,4 +1,6 @@
 import { useEffect, useRef } from 'react';
+import { MAX_CPS, MIN_CPS } from '../game/constants';
+import { stepMsToCps } from '../game/speed';
 import type { GameCommand, GameState } from '../game/types';
 import { CanvasBoard } from '../render/CanvasBoard';
 
@@ -24,6 +26,8 @@ export function GameScreen({ state, dispatch }: GameScreenProps) {
   const continueRef = useRef<HTMLButtonElement | null>(null);
   const restartRef = useRef<HTMLButtonElement | null>(null);
   const startRef = useRef<HTMLButtonElement | null>(null);
+  const speedCps = stepMsToCps(state.board.stepMs);
+  const stepMsLabel = Math.round(state.board.stepMs);
 
   useEffect(() => {
     if (state.phase === 'menu') {
@@ -52,6 +56,38 @@ export function GameScreen({ state, dispatch }: GameScreenProps) {
       <div className="stage">
         <CanvasBoard state={state} />
 
+        <div className="speed-control">
+          <div className="speed-control-header">
+            <label htmlFor="speed-slider">速度</label>
+            <p className="speed-readout" data-testid="speed-readout">
+              当前 {speedCps} 格/秒（{stepMsLabel} 毫秒/步）
+            </p>
+          </div>
+          <div className="speed-slider-row">
+            <span>慢</span>
+            <input
+              id="speed-slider"
+              data-testid="speed-slider"
+              type="range"
+              min={MIN_CPS}
+              max={MAX_CPS}
+              step={1}
+              value={speedCps}
+              aria-valuemin={MIN_CPS}
+              aria-valuemax={MAX_CPS}
+              aria-valuenow={speedCps}
+              aria-valuetext={`${speedCps} 格每秒，从慢到快`}
+              onChange={(event) => {
+                dispatch({
+                  type: 'SET_SPEED',
+                  cps: Number(event.target.value),
+                });
+              }}
+            />
+            <span>快</span>
+          </div>
+        </div>
+
         {state.phase === 'menu' ? (
           <div className="overlay">
             <div className="panel">
@@ -77,7 +113,7 @@ export function GameScreen({ state, dispatch }: GameScreenProps) {
           <div className="overlay">
             <div className="panel">
               <h2>暂停</h2>
-              <p>棋盘已冻结。继续后会重新计满一个 125 毫秒逻辑步。</p>
+              <p>棋盘已冻结。继续后会重新计满一个 {stepMsLabel} 毫秒逻辑步。</p>
               <div className="actions">
                 <button
                   ref={continueRef}

@@ -37,6 +37,11 @@ describe('createInitialState / createMenuState', () => {
   it('keeps createMenuState equivalent to createInitialState', () => {
     expect(createMenuState(7)).toEqual(createInitialState(7));
   });
+
+  it('accepts a custom stepMs for the board config', () => {
+    expect(createMenuState(0, 250).board.stepMs).toBe(250);
+    expect(createInitialState(0, 1000 / 15).board.stepMs).toBeCloseTo(1000 / 15);
+  });
 });
 
 describe('createNewGame', () => {
@@ -51,5 +56,13 @@ describe('createNewGame', () => {
     expect(state.snake.direction).toBe('right');
     expect(state.snake.pendingDirection).toBeNull();
     expect(state.food).toEqual({ x: 0, y: 0 });
+    expect(state.board.stepMs).toBe(STEP_MS);
+  });
+
+  it('keeps a custom stepMs on the new board', () => {
+    const state = createNewGame(0, () => 0, 250);
+    expect(state.board.stepMs).toBe(250);
+    expect(state.board.columns).toBe(BOARD_COLUMNS);
+    expect(state.board.rows).toBe(BOARD_ROWS);
   });
 });
