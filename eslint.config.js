@@ -8,10 +8,13 @@ export default tseslint.config(
   {
     ignores: [
       'dist',
+      'dist-electron',
+      'release',
       'node_modules',
       'playwright-report',
       'test-results',
       'coverage',
+      'scripts',
     ],
   },
   {
@@ -34,6 +37,12 @@ export default tseslint.config(
         'warn',
         { allowConstantExport: true },
       ],
+    },
+  },
+  {
+    files: ['electron/**/*.ts', 'src/desktop/**/*.ts', 'src/settings/settings.ts', 'src/audio/**/*.ts'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
     },
   },
 );

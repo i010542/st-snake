@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createAudioManager } from '../audio/audioManager';
+import { useDesktopCommands } from '../desktop/useDesktopCommands';
 import { MAX_CATCH_UP_STEPS } from '../game/constants';
 import { mapKeyToAction } from '../game/input';
 import { advanceAccumulator } from '../game/loop';
 import { reduceGame } from '../game/reducer';
-import { cpsToStepMs, stepMsToCps } from '../game/speed';
+import { clampCps } from '../game/speed';
 import { createMenuState } from '../game/state';
 import type { GameCommand, GameState, RandomSource } from '../game/types';
+import {
+  DEFAULT_SETTINGS,
+  readAppSettings,
+  restoreDefaultSettings,
+  writeAppSettings,
+  type AppSettings,
+} from '../settings/settings';
 import { readHighScore, writeHighScore } from '../storage/highScore';
-import { readSpeedCps, writeSpeedCps } from '../storage/speed';
 import { GameScreen } from './GameScreen';
 
 interface AppProps {
@@ -21,30 +29,47 @@ export function App({
   storage,
   initialState,
 }: AppProps) {
+  const [settings, setSettings] = useState<AppSettings>(
+    () => readAppSettings(storage),
+  );
   const [state, setState] = useState<GameState>(
     () =>
       initialState ??
-      createMenuState(readHighScore(storage), cpsToStepMs(readSpeedCps(storage))),
+      createMenuState(readHighScore(storage), 1000 / settings.speedCps),
   );
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [scorePulse, setScorePulse] = useState(false);
 
   const stateRef = useRef(state);
   const randomRef = useRef(random);
   const storageRef = useRef(storage);
+  const settingsRef = useRef(settings);
+  const settingsOpenRef = useRef(settingsOpen);
+  const helpOpenRef = useRef(helpOpen);
+  const audioRef = useRef(createAudioManager());
+  const previousScoreRef = useRef(state.score);
+  const previousPhaseRef = useRef(state.phase);
 
   useLayoutEffect(() => {
     stateRef.current = state;
     randomRef.current = random;
     storageRef.current = storage;
-  }, [state, random, storage]);
+    settingsRef.current = settings;
+    settingsOpenRef.current = settingsOpen;
+    helpOpenRef.current = helpOpen;
+  }, [state, random, storage, settings, settingsOpen, helpOpen]);
+
+  const persistSettings = useCallback((next: AppSettings) => {
+    setSettings(next);
+    writeAppSettings(next, storageRef.current);
+  }, []);
 
   const dispatch = useCallback((command: GameCommand) => {
     setState((previous) => {
       const next = reduceGame(previous, command, randomRef.current);
       if (next.highScore !== previous.highScore) {
         writeHighScore(next.highScore, storageRef.current);
-      }
-      if (command.type === 'SET_SPEED') {
-        writeSpeedCps(stepMsToCps(next.board.stepMs), storageRef.current);
       }
       return next;
     });
@@ -66,8 +91,108 @@ export function App({
     });
   }, []);
 
+  const changeSettings = useCallback(
+    (patch: Partial<AppSettings>) => {
+      const next: AppSettings = {
+        ...settingsRef.current,
+        ...patch,
+        speedCps: clampCps(patch.speedCps ?? settingsRef.current.speedCps),
+        volume: Math.min(100, Math.max(0, patch.volume ?? settingsRef.current.volume)),
+      };
+      persistSettings(next);
+      if (patch.speedCps !== undefined) {
+        dispatch({ type: 'SET_SPEED', cps: next.speedCps });
+      }
+    },
+    [dispatch, persistSettings],
+  );
+
+  const openSettings = useCallback(() => {
+    if (stateRef.current.phase === 'running') {
+      dispatch({ type: 'PAUSE' });
+    }
+    setHelpOpen(false);
+    setSettingsOpen(true);
+  }, [dispatch]);
+
+  const closeSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
+
+  const openHelp = useCallback(() => {
+    if (stateRef.current.phase === 'running') {
+      dispatch({ type: 'PAUSE' });
+    }
+    setSettingsOpen(false);
+    setHelpOpen(true);
+  }, [dispatch]);
+
+  const closeHelp = useCallback(() => {
+    setHelpOpen(false);
+  }, []);
+
+  const restoreDefaults = useCallback(() => {
+    const next = restoreDefaultSettings(storageRef.current);
+    persistSettings(next);
+    dispatch({ type: 'SET_SPEED', cps: DEFAULT_SETTINGS.speedCps });
+  }, [dispatch, persistSettings]);
+
+  const playConfirm = useCallback(() => {
+    audioRef.current.play('confirm', settingsRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (state.score > previousScoreRef.current) {
+      audioRef.current.play('eat', settingsRef.current);
+      setScorePulse(true);
+      const timer = window.setTimeout(() => setScorePulse(false), 180);
+      previousScoreRef.current = state.score;
+      return () => window.clearTimeout(timer);
+    }
+    previousScoreRef.current = state.score;
+    return undefined;
+  }, [state.score]);
+
+  useEffect(() => {
+    if (state.phase === 'gameOver' && previousPhaseRef.current !== 'gameOver') {
+      audioRef.current.play('die', settingsRef.current);
+    }
+    previousPhaseRef.current = state.phase;
+  }, [state.phase]);
+
+  useEffect(() => {
+    const audio = audioRef.current;
+    return () => {
+      audio.dispose();
+    };
+  }, []);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'F1') {
+        event.preventDefault();
+        if (!event.repeat) {
+          openHelp();
+        }
+        return;
+      }
+
+      if (event.key === 'Escape' && settingsOpenRef.current) {
+        event.preventDefault();
+        if (!event.repeat) {
+          closeSettings();
+        }
+        return;
+      }
+
+      if (event.key === 'Escape' && helpOpenRef.current) {
+        event.preventDefault();
+        if (!event.repeat) {
+          closeHelp();
+        }
+        return;
+      }
+
       const action = mapKeyToAction(event.key);
       if (!action) {
         return;
@@ -77,11 +202,11 @@ export function App({
       const target = event.target;
       const isButton =
         target instanceof HTMLElement && target.tagName === 'BUTTON';
-      const isSpeedSlider =
+      const isRange =
         target instanceof HTMLInputElement && target.type === 'range';
 
       if (action.type === 'direction') {
-        if (isSpeedSlider) {
+        if (isRange || settingsOpenRef.current) {
           return;
         }
         if (event.key.startsWith('Arrow')) {
@@ -105,7 +230,7 @@ export function App({
       }
 
       if (event.key === ' ') {
-        if (isButton) {
+        if (isButton || settingsOpenRef.current) {
           return;
         }
         event.preventDefault();
@@ -125,20 +250,29 @@ export function App({
     return () => {
       window.removeEventListener('keydown', onKeyDown);
     };
-  }, [dispatch]);
+  }, [closeHelp, closeSettings, dispatch, openHelp]);
 
   useEffect(() => {
+    const pauseFromBackground = () => {
+      dispatch({ type: 'VISIBILITY_HIDDEN' });
+    };
+
     const onVisibility = () => {
       if (document.hidden) {
-        dispatch({ type: 'VISIBILITY_HIDDEN' });
+        pauseFromBackground();
       }
     };
 
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('blur', pauseFromBackground);
     return () => {
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('blur', pauseFromBackground);
     };
   }, [dispatch]);
+
+  const getPhase = useCallback(() => stateRef.current.phase, []);
+  useDesktopCommands(getPhase, dispatch, openHelp);
 
   useEffect(() => {
     let frameId = 0;
@@ -189,5 +323,20 @@ export function App({
     };
   }, [applyTicks]);
 
-  return <GameScreen state={state} dispatch={dispatch} />;
+  return (
+    <GameScreen
+      state={state}
+      dispatch={dispatch}
+      settings={settings}
+      settingsOpen={settingsOpen}
+      helpOpen={helpOpen}
+      scorePulse={scorePulse}
+      onOpenSettings={openSettings}
+      onCloseSettings={closeSettings}
+      onChangeSettings={changeSettings}
+      onRestoreDefaults={restoreDefaults}
+      onCloseHelp={closeHelp}
+      onConfirmSound={playConfirm}
+    />
+  );
 }

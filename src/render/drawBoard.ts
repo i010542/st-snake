@@ -7,6 +7,11 @@ export interface RenderMetrics {
   devicePixelRatio: number;
 }
 
+export interface DrawOptions {
+  gridVisible?: boolean;
+  dimmed?: boolean;
+}
+
 export function resizeCanvas(
   canvas: HTMLCanvasElement,
   metrics: RenderMetrics,
@@ -37,6 +42,7 @@ export function drawBoard(
   context: CanvasRenderingContext2D,
   state: GameState,
   viewport: RenderMetrics,
+  options: DrawOptions = {},
 ): void {
   const dpr = viewport.devicePixelRatio > 0 ? viewport.devicePixelRatio : 1;
   context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -49,20 +55,22 @@ export function drawBoard(
   context.fillStyle = BOARD_COLORS.background;
   context.fillRect(0, 0, cssWidth, cssHeight);
 
-  context.strokeStyle = BOARD_COLORS.grid;
-  context.lineWidth = 1;
-  context.beginPath();
-  for (let x = 0; x <= columns; x += 1) {
-    const px = Math.round(x * cellW) + 0.5;
-    context.moveTo(px, 0);
-    context.lineTo(px, cssHeight);
+  if (options.gridVisible !== false) {
+    context.strokeStyle = BOARD_COLORS.grid;
+    context.lineWidth = 1;
+    context.beginPath();
+    for (let x = 0; x <= columns; x += 1) {
+      const px = Math.round(x * cellW) + 0.5;
+      context.moveTo(px, 0);
+      context.lineTo(px, cssHeight);
+    }
+    for (let y = 0; y <= rows; y += 1) {
+      const py = Math.round(y * cellH) + 0.5;
+      context.moveTo(0, py);
+      context.lineTo(cssWidth, py);
+    }
+    context.stroke();
   }
-  for (let y = 0; y <= rows; y += 1) {
-    const py = Math.round(y * cellH) + 0.5;
-    context.moveTo(0, py);
-    context.lineTo(cssWidth, py);
-  }
-  context.stroke();
 
   const pad = Math.max(1, Math.min(cellW, cellH) * 0.12);
 
@@ -123,14 +131,14 @@ export function drawBoard(
     context.fill();
 
     context.strokeStyle = BOARD_COLORS.foodMark;
-    context.lineWidth = Math.max(1.5, radius * 0.28);
-    context.lineCap = 'square';
-    const arm = radius * 0.45;
+    context.lineWidth = Math.max(1.5, radius * 0.18);
     context.beginPath();
-    context.moveTo(cx - arm, cy);
-    context.lineTo(cx + arm, cy);
-    context.moveTo(cx, cy - arm);
-    context.lineTo(cx, cy + arm);
+    context.arc(cx, cy, radius * 0.45, 0, Math.PI * 2);
     context.stroke();
+  }
+
+  if (options.dimmed) {
+    context.fillStyle = 'rgba(7, 17, 29, 0.35)';
+    context.fillRect(0, 0, cssWidth, cssHeight);
   }
 }

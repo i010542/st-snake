@@ -1,10 +1,10 @@
-/** Metro grayscale board palette. Head is the only chromatic color. */
+/** Dark desktop arcade palette from WINDOWS_DESKTOP_DESIGN.md. */
 export const BOARD_COLORS = {
-  background: '#0a0a0a',
-  grid: '#5c5c5c',
-  body: '#b3b3b3',
-  head: '#e51400',
-  headMark: '#ffffff',
-  food: '#f5f5f5',
-  foodMark: '#111111',
+  background: '#07111D',
+  grid: 'rgba(148, 163, 184, 0.12)',
+  body: '#36D399',
+  head: '#A7F3D0',
+  headMark: '#0B1220',
+  food: '#FFB454',
+  foodMark: '#FFE6B8',
 } as const;

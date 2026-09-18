@@ -35,7 +35,7 @@ describe('drawBoard', () => {
     expect(state.snake.segments[0]).toEqual({ x: 12, y: 9 });
   });
 
-  it('uses a vivid red head against gray body, light food, and a dark board', () => {
+  it('uses the desktop arcade palette for head, body, food, and board', () => {
     const fills: string[] = [];
     const context = {
       ...mockContext(),
@@ -53,9 +53,9 @@ describe('drawBoard', () => {
       devicePixelRatio: 1,
     });
 
-    expect(BOARD_COLORS.head).toBe('#e51400');
-    expect(BOARD_COLORS.body).toBe('#b3b3b3');
-    expect(BOARD_COLORS.food).toBe('#f5f5f5');
+    expect(BOARD_COLORS.head).toBe('#A7F3D0');
+    expect(BOARD_COLORS.body).toBe('#36D399');
+    expect(BOARD_COLORS.food).toBe('#FFB454');
     expect(fills).toContain(BOARD_COLORS.background);
     expect(fills).toContain(BOARD_COLORS.body);
     expect(fills).toContain(BOARD_COLORS.head);

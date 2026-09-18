@@ -4,6 +4,8 @@ import { drawBoard, resizeCanvas, type RenderMetrics } from './drawBoard';
 
 interface CanvasBoardProps {
   state: GameState;
+  gridVisible?: boolean;
+  dimmed?: boolean;
 }
 
 function readMetrics(element: HTMLElement): RenderMetrics {
@@ -15,14 +17,28 @@ function readMetrics(element: HTMLElement): RenderMetrics {
   };
 }
 
-export function CanvasBoard({ state }: CanvasBoardProps) {
+function fitBoard(width: number, height: number): { cssWidth: number; cssHeight: number } {
+  const cell = Math.max(1, Math.floor(Math.min(width / 24, height / 18)));
+  return {
+    cssWidth: cell * 24,
+    cssHeight: cell * 18,
+  };
+}
+
+export function CanvasBoard({
+  state,
+  gridVisible = true,
+  dimmed = false,
+}: CanvasBoardProps) {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const stateRef = useRef(state);
+  const optionsRef = useRef({ gridVisible, dimmed });
 
   useLayoutEffect(() => {
     stateRef.current = state;
-  }, [state]);
+    optionsRef.current = { gridVisible, dimmed };
+  }, [state, gridVisible, dimmed]);
 
   useEffect(() => {
     const wrap = wrapRef.current;
@@ -37,9 +53,15 @@ export function CanvasBoard({ state }: CanvasBoardProps) {
     }
 
     const paint = () => {
-      const metrics = readMetrics(wrap);
+      const raw = readMetrics(wrap);
+      const fitted = fitBoard(raw.cssWidth, raw.cssHeight);
+      const metrics = {
+        ...raw,
+        cssWidth: fitted.cssWidth,
+        cssHeight: fitted.cssHeight,
+      };
       resizeCanvas(canvas, metrics);
-      drawBoard(context, stateRef.current, metrics);
+      drawBoard(context, stateRef.current, metrics, optionsRef.current);
     };
 
     paint();
@@ -67,8 +89,15 @@ export function CanvasBoard({ state }: CanvasBoardProps) {
     if (!wrap || !canvas || !context) {
       return;
     }
-    drawBoard(context, state, readMetrics(wrap));
-  }, [state]);
+    const raw = readMetrics(wrap);
+    const fitted = fitBoard(raw.cssWidth, raw.cssHeight);
+    drawBoard(
+      context,
+      state,
+      { ...raw, cssWidth: fitted.cssWidth, cssHeight: fitted.cssHeight },
+      { gridVisible, dimmed },
+    );
+  }, [state, gridVisible, dimmed]);
 
   const foodLabel = state.food
     ? `食物在第 ${state.food.x + 1} 列第 ${state.food.y + 1} 行`
