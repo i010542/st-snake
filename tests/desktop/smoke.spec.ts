@@ -57,3 +57,21 @@ test('production electron smoke: window, play, menu, settings, exit', async () =
   await app.close();
   expect(processRef?.killed || processRef?.exitCode !== null).toBeTruthy();
 });
+
+test('after a wall death, restart stays running instead of dying immediately', async () => {
+  const { app, page } = await launchApp();
+
+  await page.getByRole('button', { name: '开始游戏' }).click();
+  await expect(page.getByTestId('phase-status')).toContainText('进行中');
+  await expect(page.getByRole('alert')).toBeVisible({ timeout: 4000 });
+  await expect(page.getByRole('alert')).toContainText('撞墙');
+
+  await page.getByRole('button', { name: '重新开始' }).click();
+  await expect(page.getByTestId('phase-status')).toContainText('进行中');
+  await expect(page.getByRole('button', { name: '暂停' })).toBeVisible();
+  await page.waitForTimeout(400);
+  await expect(page.getByTestId('phase-status')).toContainText('进行中');
+  await expect(page.getByRole('alert')).toHaveCount(0);
+
+  await app.close();
+});
