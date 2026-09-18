@@ -52,7 +52,7 @@ npm run test:desktop   # Electron 生产构建冒烟测试
 npm run dist:win
 ```
 
-产物在 `release/`：
+在 Linux 上交叉打包 NSIS 需要可用的 Wine（含 32 位 `wine32`）。Portable 不依赖 Wine。产物在 `release/`：
 
 - NSIS 安装包：适合普通用户安装、开始菜单/桌面快捷方式和卸载
 - Portable：免安装，双击即可运行
