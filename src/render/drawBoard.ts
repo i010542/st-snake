@@ -1,20 +1,11 @@
 import type { GameState } from '../game/types';
+import { BOARD_COLORS } from '../styles/palette';
 
 export interface RenderMetrics {
   cssWidth: number;
   cssHeight: number;
   devicePixelRatio: number;
 }
-
-const COLORS = {
-  background: '#111827',
-  grid: '#475569',
-  body: '#38bdf8',
-  head: '#fbbf24',
-  headMark: '#111827',
-  food: '#fb7185',
-  foodMark: '#fff7ed',
-} as const;
 
 export function resizeCanvas(
   canvas: HTMLCanvasElement,
@@ -55,10 +46,10 @@ export function drawBoard(
   const cellW = cssWidth / columns;
   const cellH = cssHeight / rows;
 
-  context.fillStyle = COLORS.background;
+  context.fillStyle = BOARD_COLORS.background;
   context.fillRect(0, 0, cssWidth, cssHeight);
 
-  context.strokeStyle = COLORS.grid;
+  context.strokeStyle = BOARD_COLORS.grid;
   context.lineWidth = 1;
   context.beginPath();
   for (let x = 0; x <= columns; x += 1) {
@@ -78,14 +69,14 @@ export function drawBoard(
   for (let i = 1; i < state.snake.segments.length; i += 1) {
     const segment = state.snake.segments[i];
     const rect = cellRect(segment.x, segment.y, cellW, cellH, pad);
-    context.fillStyle = COLORS.body;
+    context.fillStyle = BOARD_COLORS.body;
     context.fillRect(rect.x, rect.y, rect.w, rect.h);
   }
 
   const head = state.snake.segments[0];
   if (head) {
     const rect = cellRect(head.x, head.y, cellW, cellH, pad);
-    context.fillStyle = COLORS.head;
+    context.fillStyle = BOARD_COLORS.head;
     context.beginPath();
     context.moveTo(rect.x + rect.w / 2, rect.y);
     context.lineTo(rect.x + rect.w, rect.y + rect.h / 2);
@@ -94,7 +85,7 @@ export function drawBoard(
     context.closePath();
     context.fill();
 
-    context.fillStyle = COLORS.headMark;
+    context.fillStyle = BOARD_COLORS.headMark;
     const eye = Math.max(1.5, Math.min(rect.w, rect.h) * 0.12);
     const cx = rect.x + rect.w / 2;
     const cy = rect.y + rect.h / 2;
@@ -126,14 +117,14 @@ export function drawBoard(
     const radius = Math.min(rect.w, rect.h) / 2;
     const cx = rect.x + rect.w / 2;
     const cy = rect.y + rect.h / 2;
-    context.fillStyle = COLORS.food;
+    context.fillStyle = BOARD_COLORS.food;
     context.beginPath();
     context.arc(cx, cy, radius, 0, Math.PI * 2);
     context.fill();
 
-    context.strokeStyle = COLORS.foodMark;
+    context.strokeStyle = BOARD_COLORS.foodMark;
     context.lineWidth = Math.max(1.5, radius * 0.28);
-    context.lineCap = 'round';
+    context.lineCap = 'square';
     const arm = radius * 0.45;
     context.beginPath();
     context.moveTo(cx - arm, cy);

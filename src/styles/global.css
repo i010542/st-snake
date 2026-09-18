@@ -1,14 +1,25 @@
 :root {
   color-scheme: dark;
-  --bg: #0b1020;
-  --panel: #151c2e;
-  --text: #f8fafc;
-  --muted: #cbd5e1;
-  --accent: #38bdf8;
-  --accent-2: #fbbf24;
-  --danger: #fb7185;
-  --focus: #fde68a;
-  --shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+  --bg: #111111;
+  --bg-deep: #0a0a0a;
+  --panel: #1c1c1c;
+  --panel-border: #d4d4d4;
+  --text: #f2f2f2;
+  --muted: #b3b3b3;
+  --control-bg: #e6e6e6;
+  --control-bg-hover: #ffffff;
+  --control-text: #111111;
+  --control-border: #f2f2f2;
+  --focus: #ffffff;
+  --track: #5c5c5c;
+  --thumb: #f2f2f2;
+  --board-bg: #0a0a0a;
+  --board-border: #d4d4d4;
+  --snake-head: #e51400;
+  --snake-body: #b3b3b3;
+  --food: #f5f5f5;
+  --grid: #5c5c5c;
+  --radius: 0;
   font-family: "Segoe UI", "PingFang SC", "Noto Sans SC", sans-serif;
 }
 
@@ -31,17 +42,17 @@ body {
 
 button {
   font: inherit;
-  color: #0b1020;
-  background: var(--accent-2);
-  border: 2px solid #f59e0b;
-  border-radius: 10px;
+  color: var(--control-text);
+  background: var(--control-bg);
+  border: 2px solid var(--control-border);
+  border-radius: var(--radius);
   padding: 0.65rem 1.1rem;
   min-height: 44px;
   cursor: pointer;
 }
 
 button:hover {
-  filter: brightness(1.05);
+  background: var(--control-bg-hover);
 }
 
 button:focus-visible {
@@ -65,11 +76,16 @@ button:focus-visible {
   justify-content: space-between;
   align-items: baseline;
   gap: 0.5rem 1rem;
+  background: var(--panel);
+  border: 2px solid var(--panel-border);
+  padding: 0.65rem 0.85rem;
 }
 
 .title {
   margin: 0;
   font-size: clamp(1.4rem, 5vw, 2rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .scores {
@@ -94,9 +110,9 @@ button:focus-visible {
   aspect-ratio: 24 / 18;
   max-height: min(70vh, 640px);
   margin: 0 auto;
-  background: #111827;
-  border: 2px solid #64748b;
-  border-radius: 12px;
+  background: var(--board-bg);
+  border: 2px solid var(--board-border);
+  border-radius: var(--radius);
   overflow: hidden;
 }
 
@@ -117,10 +133,9 @@ button:focus-visible {
   width: min(100%, 28rem);
   background: var(--panel);
   color: var(--text);
-  border: 1px solid #334155;
-  border-radius: 14px;
+  border: 2px solid var(--panel-border);
+  border-radius: var(--radius);
   padding: 1rem 1.1rem 1.15rem;
-  box-shadow: var(--shadow);
 }
 
 .panel h2,
@@ -156,8 +171,8 @@ button:focus-visible {
 .speed-control {
   width: 100%;
   background: var(--panel);
-  border: 1px solid #334155;
-  border-radius: 12px;
+  border: 2px solid var(--panel-border);
+  border-radius: var(--radius);
   padding: 0.75rem 1rem;
 }
 
@@ -196,7 +211,44 @@ button:focus-visible {
   flex: 1 1 auto;
   min-width: 0;
   height: 2rem;
-  accent-color: var(--accent);
+  appearance: none;
+  background: transparent;
+  accent-color: var(--thumb);
+}
+
+.speed-slider-row input[type='range']::-webkit-slider-runnable-track {
+  height: 4px;
+  background: var(--track);
+  border: 0;
+}
+
+.speed-slider-row input[type='range']::-webkit-slider-thumb {
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  margin-top: -6px;
+  background: var(--thumb);
+  border: 2px solid var(--bg);
+  border-radius: var(--radius);
+}
+
+.speed-slider-row input[type='range']::-moz-range-track {
+  height: 4px;
+  background: var(--track);
+  border: 0;
+}
+
+.speed-slider-row input[type='range']::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  background: var(--thumb);
+  border: 2px solid var(--bg);
+  border-radius: var(--radius);
+}
+
+.speed-slider-row input[type='range']:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 3px;
 }
 
 @media (max-width: 360px) {

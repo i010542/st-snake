@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { createNewGame } from '../../src/game/state';
 import { drawBoard, resizeCanvas } from '../../src/render/drawBoard';
+import { BOARD_COLORS } from '../../src/styles/palette';
 
 function mockContext() {
   return {
@@ -32,6 +33,33 @@ describe('drawBoard', () => {
     expect(context.fillRect).toHaveBeenCalled();
     expect(context.arc).toHaveBeenCalled();
     expect(state.snake.segments[0]).toEqual({ x: 12, y: 9 });
+  });
+
+  it('uses a vivid red head against gray body, light food, and a dark board', () => {
+    const fills: string[] = [];
+    const context = {
+      ...mockContext(),
+      set fillStyle(value: string) {
+        fills.push(value);
+      },
+      get fillStyle() {
+        return fills[fills.length - 1] ?? '';
+      },
+    };
+    const state = createNewGame(0, () => 0);
+    drawBoard(context as unknown as CanvasRenderingContext2D, state, {
+      cssWidth: 240,
+      cssHeight: 180,
+      devicePixelRatio: 1,
+    });
+
+    expect(BOARD_COLORS.head).toBe('#e51400');
+    expect(BOARD_COLORS.body).toBe('#b3b3b3');
+    expect(BOARD_COLORS.food).toBe('#f5f5f5');
+    expect(fills).toContain(BOARD_COLORS.background);
+    expect(fills).toContain(BOARD_COLORS.body);
+    expect(fills).toContain(BOARD_COLORS.head);
+    expect(fills).toContain(BOARD_COLORS.food);
   });
 });
 
