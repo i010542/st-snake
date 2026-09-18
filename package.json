@@ -1,0 +1,81 @@
+{
+  "name": "st-snake",
+  "private": true,
+  "version": "0.1.0",
+  "description": "st贪吃蛇本地离线桌面与浏览器版",
+  "author": "i010542",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "dev:desktop": "npm run build:electron && concurrently -k -n vite,electron \"vite --host 127.0.0.1 --port 5173 --base /\" \"wait-on http://127.0.0.1:5173 && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 electron .\"",
+    "build": "tsc --noEmit && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json && node scripts/write-electron-package.mjs",
+    "build:desktop": "npm run build:electron && tsc --noEmit && cross-env ELECTRON_BUILD=1 vite build",
+    "dist:win": "npm run build:desktop && electron-builder --win --x64",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:desktop": "npm run build:desktop && playwright test --config playwright.desktop.config.ts",
+    "lint": "eslint .",
+    "icon": "node scripts/generate-icon.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.63.0",
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@testing-library/user-event": "^14.6.7",
+    "@types/node": "^26.6.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^10.0.5",
+    "cross-env": "^10.1.0",
+    "electron": "^44.4.2",
+    "electron-builder": "^26.15.3",
+    "eslint": "^10.10.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^17.12.0",
+    "jsdom": "^29.1.1",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.70.0",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.1",
+    "wait-on": "^9.1.0"
+  },
+  "build": {
+    "appId": "com.i010542.st-snake",
+    "productName": "st贪吃蛇",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*",
+      "package.json",
+      "assets/icon.png",
+      "assets/icon.ico"
+    ],
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "assets/icon.ico",
+      "executableName": "st贪吃蛇"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
